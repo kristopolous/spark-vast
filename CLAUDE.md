@@ -12,6 +12,8 @@ Vast.ai port of runpod-flash. Package `spark` (src layout), CLI `spark` (`spark.
 - `src/spark/vast.py`: async httpx client for `console.vast.ai/api/v0` and `run.vast.ai/route`.
 - `src/spark/worker/server.py`: runs on the GPU box. **Must stay stdlib + cloudpickle only**; it is
   shipped gzip+base64 in the `SPARK_WORKER_B64` env var, not installed.
+- `src/spark/compat.py`: runpod-flash drop-in names (GpuType/GpuGroup/LiveServerless/...) and `flash_to_spark()`
+  kwarg mapping. Keep enum names/values identical to Flash; Vast gpu_name tables live here.
 - `src/spark/state.py`: `~/.spark/state.json` (file-locked). Holds per-instance tokens.
 
 ## Commands

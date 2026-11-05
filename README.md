@@ -20,6 +20,51 @@ that machine. Arguments and return values are pickled with cloudpickle. Remote `
 locally, and remote exceptions are raised locally with their traceback. Any local `.py` modules the
 function imports are shipped with it.
 
+## Coming from runpod-flash
+
+Spark is a drop-in replacement for runpod-flash. Change the import and your endpoints run on Vast.ai:
+
+```diff
+- from runpod_flash import Endpoint, GpuGroup, GpuType
++ from spark import Endpoint, GpuGroup, GpuType
+
+  @Endpoint(name="worker", gpu=GpuGroup.ADA_24, workers=(0, 3), dependencies=["torch"])
+  async def process(data: dict) -> dict: ...
+```
+
+All 20 of Flash's public names import from `spark`: `remote`, `Endpoint`, `LiveServerless`,
+`CpuLiveServerless`, `ServerlessEndpoint`, `GpuGroup`, `GpuType`, `CpuInstanceType`, `CudaVersion`,
+`DataCenter`, `NetworkVolume`, `PodTemplate`, and the rest. The legacy
+`@remote(resource_config=LiveServerless(...), dependencies=[...])` form and `remote(..., local=True)`
+work too. This is how each Flash setting maps to Vast:
+
+| Flash | On Vast |
+|---|---|
+| `gpu=GpuType.NVIDIA_GEFORCE_RTX_4090` | `gpu_name = "RTX 4090"` |
+| `gpu=GpuGroup.AMPERE_24` | any of `RTX A5000`, `L4`, `RTX 3090` (every pool is mapped; see `spark/compat.py`) |
+| `gpu=GpuGroup.ANY` / omitted | no GPU filter, so the cheapest matching box |
+| `cpu=CpuInstanceType.CPU3G_4_16` | cheapest box with ≥4 vCPU and ≥16 GB RAM (Vast is a GPU market, so it usually comes with a GPU) |
+| `gpu_count=2` | `num_gpus = 2` |
+| `workers=(min, max)` | serverless `cold_workers`/`max_workers`. The instance backend always uses one box |
+| `idle_timeout=N` | the instance destroys itself after N idle seconds (default 900 instead of Flash's 60, to avoid re-renting on every call) |
+| `execution_timeout_ms` | client request timeout |
+| `min_cuda_version=CudaVersion.V12_8` | `cuda_max_good >= 12.8` |
+| `datacenter=DataCenter.US_KS_2` | `geolocation in [US]` (country only) |
+| `env`, `dependencies`, `system_dependencies` | same |
+| `image="..."` | base image for the spark worker (any image with `python3` and `pip`) |
+| `flashboot`, `scaler_type`, `scaler_value`, `accelerate_downloads`, `max_concurrency` | accepted and ignored |
+| `volume=NetworkVolume(...)`, `template=PodTemplate(...)` | accepted, warned about, and ignored |
+
+Not supported yet, and these raise `NotImplementedError` with a clear message: load-balanced routes
+(`api.get/.post`, `LiveLoadBalancer`, `@remote(method=, path=)`), client mode (`Endpoint(id=...)`,
+`.run/.runsync/.status`), class endpoints, and the `flash` CLI's `build/deploy/app/env` commands.
+
+Spark-native options can be mixed in, for example
+`@Endpoint(gpu=GpuGroup.ADA_24, max_price_per_hour=0.4, backend="serverless")`.
+
+`spark gpus` lists the GPU names currently on the Vast market and which Flash names map to each, so you
+can check the mapping against live supply.
+
 ## Setup
 
 ```bash
@@ -63,6 +108,7 @@ the worker. Changing hardware fields replaces the machine; changing dependencies
 ```
 spark login            save + verify API key
 spark offers           cheapest offers for given filters
+spark gpus             Vast GPU names on the market + which Flash GpuType/GpuGroup maps to each
 spark ls               what spark has provisioned, with live status and $/hr
 spark down NAME|--all  destroy instances/endpoints (stops billing)
 spark orphans          find spark-* instances spark lost track of (--destroy to remove)
@@ -87,6 +133,8 @@ State is kept in `~/.spark/state.json`.
   but don't send secrets as arguments.
 - Not ported from Flash: class endpoints, `flash build/deploy` artifacts, apps/environments,
   load-balanced HTTP routes, and cross-endpoint calls.
+- The Vast GPU names in the Flash mapping come from Vast's listings and haven't been checked against
+  the live market from here. `spark gpus` shows any mapped name that currently has no offers.
 
 ## License
 
