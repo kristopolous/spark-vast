@@ -1,241 +1,93 @@
-# Flash
+# spark
 
-> [!WARNING]
-> Flash has moved into the Runpod Python SDK 2.0. `runpod-flash` was deprecated on **October 29, 2026** and receives no fixes or updates. This repository is archived and read-only. See the [migration guide](https://docs.runpod.io/sdk/migrate-from-flash).
->
-> The `flash` CLI and the SDK print this notice once per process. Set `RUNPOD_FLASH_SILENCE_DEPRECATION=1` to silence it (for example, in CI).
-
-<!-- runpod-agent-setup:start -->
-**For AI agents:** setup instructions for the Runpod skills and MCP server are at https://agents.runpod.io/
-<!-- runpod-agent-setup:end -->
-
-Flash is a Python SDK for developing cloud-native AI apps where you define everything -- hardware, remote functions, and dependencies -- using local code.
+Run a Python function on a [Vast.ai](https://vast.ai) GPU by decorating it. Spark is a Vast.ai port of
+[runpod-flash](https://github.com/runpod/flash) (MIT): "a spark is kinda like a flash."
 
 ```python
 import asyncio
-from runpod_flash import Endpoint, GpuType
+from spark import Endpoint
 
-
-@Endpoint(name="hello-gpu", gpu=GpuType.NVIDIA_GEFORCE_RTX_4090, dependencies=["torch"])
+@Endpoint(name="hello-gpu", gpu="RTX 4090", dependencies=["transformers"])
 async def hello():
     import torch
+    return torch.cuda.get_device_name(0)
 
-    gpu_name = torch.cuda.get_device_name(0)
-    print(f"Hello from your GPU! ({gpu_name})")
-    return {"gpu": gpu_name}
-
-
-asyncio.run(hello())
-print("Done!")
+print(asyncio.run(hello()))   # rents a 4090, runs the function there, returns the result
 ```
 
-Write `@Endpoint` decorated Python functions on your local machine. Deploy them with `flash deploy`, then call them by running the same script. Flash handles GPU/CPU provisioning and worker scaling on [Runpod Serverless](https://docs.runpod.io/serverless/overview).
+The first call rents the cheapest matching machine and starts the spark worker on it. Later calls reuse
+that machine. Arguments and return values are pickled with cloudpickle. Remote `print` output is shown
+locally, and remote exceptions are raised locally with their traceback. Any local `.py` modules the
+function imports are shipped with it.
 
 ## Setup
 
-### Install Flash
-
 ```bash
-pip install runpod-flash
-# or
-uv tool install runpod-flash
-# or, with Nix (flakes) — no Python setup required
-nix profile install github:runpod/flash
-# ...or run it without installing:
-nix run github:runpod/flash -- --help
+uv sync --all-groups
+uv run spark login            # or export VAST_API_KEY=...; ~/.config/vastai/vast_api_key also works
+uv run spark offers -g "RTX 4090" --max-price 0.5
+uv run python examples/hello_gpu.py
 ```
 
-Flash requires [Python 3.10+](https://www.python.org/downloads/) on macOS or Linux. Windows support is in development.
+## Two backends
 
-> **Fastest start:** with [Nix](https://nixos.org) (flakes) you can run flash straight from GitHub — `nix run github:runpod/flash -- --help` — with no Python setup, no virtualenv, and every dependency pinned for you. See the **[Nix guide](nix/README.md)** for install steps and details.
-
-### Authentication
-
-```bash
-flash login
-```
-
-This saves your API key and allows you to use the Flash CLI and call `@Endpoint` functions.
-
-### Coding agent integration
-
-`flash init` writes an `AGENTS.md` at your project root containing CLI-first rules for AI coding tools (Cursor, Codex, Aider, Amp, Jules, etc.). It also creates `CLAUDE.md` as a symlink to `AGENTS.md` so Claude Code picks up the same rules.
-
-If `AGENTS.md` or `CLAUDE.md` already exist in your project, Flash leaves them alone — your file, your rules.
-
-**Existing projects (already past flash init):**
-
-```bash
-# from your project root
-python -c "from runpod_flash.rules import install_agent_files; from pathlib import Path; install_agent_files(Path.cwd())"
-```
-
-**Tools using other conventions:** GitHub Copilot reads `.github/copilot-instructions.md` and Cursor (legacy) reads `.cursorrules`. If you use those, symlink or copy `AGENTS.md`:
-
-```bash
-ln -s ../AGENTS.md .github/copilot-instructions.md
-ln -s AGENTS.md .cursorrules
-```
-
-**Opt out:** Delete `AGENTS.md`. No `flash` subcommand other than `flash init` (or an explicit call to `install_agent_files(...)`) will re-create it.
-
-There is no `--no-rules` flag or `flash rules` subcommand by design: the rules are small, the cost of an unwanted file is one `rm`, and an opt-out flag would advertise the existence of the file to users who would otherwise never notice. If you have a use case that needs init-time suppression (corporate policy, regulated environments), open an issue and we'll revisit.
-
-**Claude Code skill bundle (optional):** For richer Claude Code integration beyond static rules, install the cross-tool skill bundle:
-
-```bash
-npx skills add runpod/skills
-```
-
-See the `SKILL.md` file in the [runpod/skills repository](https://github.com/runpod/skills/blob/main/flash/SKILL.md).
-
-## Quickstart
-
-Create `gpu_demo.py`:
+| | `backend="instance"` (default) | `backend="serverless"` |
+|---|---|---|
+| What it rents | One on-demand instance per endpoint | A Vast Serverless endpoint + workergroup |
+| Best for | Cost control, dev, batch jobs | Bursty or multi-user traffic, enterprise |
+| Billing | Only while the box exists. It destroys itself after `idle_timeout` seconds idle | Whatever cold/hot workers the autoscaler keeps |
+| Request path | client → `http://ip:port/execute` (per-instance bearer token) | client → `run.vast.ai/route` → PyWorker → spark worker |
+| Status | Tested end to end against a local worker | **Experimental**: built from the docs, not yet run live |
 
 ```python
-import asyncio
-from runpod_flash import Endpoint, GpuType
-
-
-@Endpoint(
-    name="flash-quickstart",
-    gpu=GpuType.NVIDIA_GEFORCE_RTX_4090,
-    workers=3,
-    dependencies=["numpy", "torch"],
-)
-def gpu_matrix_multiply(size):
-    import numpy as np
-    import torch
-
-    device_name = torch.cuda.get_device_name(0)
-    A = np.random.rand(size, size)
-    B = np.random.rand(size, size)
-    C = np.dot(A, B)
-
-    return {"matrix_size": size, "result_mean": float(np.mean(C)), "gpu": device_name}
-
-
-async def main():
-    print("Running matrix multiplication on Runpod GPU...")
-    result = await gpu_matrix_multiply(1000)
-    print(f"Matrix size: {result['matrix_size']}x{result['matrix_size']}")
-    print(f"Result mean: {result['result_mean']:.4f}")
-    print(f"GPU used: {result['gpu']}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+@Endpoint(name="embed", backend="serverless", gpu="RTX 4090", max_workers=5, cold_workers=1)
+async def embed(texts): ...
 ```
 
-Deploy, then run:
+## Endpoint options
 
-```bash
-flash deploy
-python gpu_demo.py
+`gpu` (a name or a list, e.g. `"RTX 4090"`), `num_gpus`, `min_gpu_ram_gb`, `max_price_per_hour`,
+`disk_gb`, `min_cuda`, `min_reliability`, and `search` (raw Vast filters such as
+`{"geolocation": {"in": ["US"]}}`) choose the hardware.
+
+`image` (default `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime`), `env`, `dependencies` (pip), and
+`system_dependencies` (apt) set up the software. Dependencies are installed on first use and cached on
+the worker. Changing hardware fields replaces the machine; changing dependencies does not.
+
+`idle_timeout`, `provision_timeout`, and `request_timeout` control the lifecycle.
+
+`fn.local(...)` runs the original function in-process, and `fn.sync(...)` is a blocking call.
+
+## CLI
+
 ```
+spark login            save + verify API key
+spark offers           cheapest offers for given filters
+spark ls               what spark has provisioned, with live status and $/hr
+spark down NAME|--all  destroy instances/endpoints (stops billing)
+spark orphans          find spark-* instances spark lost track of (--destroy to remove)
+```
+
+State is kept in `~/.spark/state.json`.
 
 ## How it works
 
-Flash has two modes: **deploy** and **dev**.
+- `src/spark/endpoint.py`: the decorator. It extracts the function source, serializes the arguments,
+  provisions the endpoint, executes the call, and re-provisions once if the machine has disappeared.
+- `src/spark/backends/`: `instance.py` and `serverless.py` against `src/spark/vast.py` (the REST client).
+- `src/spark/worker/server.py`: a self-contained worker that needs only the standard library and
+  cloudpickle. It is shipped gzip+base64 in an env var and unpacked by a short onstart script, so no
+  image build or registry is needed. `worker/pyworker.py` is Vast's PyWorker config for serverless.
 
-### Deploy and run (`flash deploy` + `python script.py`)
+## Caveats
 
-Deploy packages your code and provisions endpoints on Runpod. After deploying, run your script directly and Flash routes calls to your deployed endpoints via implicit resolution:
-
-```bash
-flash deploy                 # build, upload, provision endpoints
-python gpu_demo.py           # calls deployed endpoints automatically
-```
-
-Flash resolves endpoints by matching the app name (defaults to the current directory name) and environment (defaults to `production`). Configure with env vars or `.env`:
-
-```bash
-FLASH_APP=my-project         # defaults to current directory name
-FLASH_ENV=staging            # defaults to "production"
-```
-
-### Dev mode (`flash dev`)
-
-For local development and testing, `flash dev` starts a hybrid dev server that runs your FastAPI app locally while provisioning live ephemeral workers on Runpod:
-
-```bash
-flash dev                    # starts local server + provisions workers
-flash dev --port 3000        # custom port
-flash dev --auto-provision   # provision all endpoints at startup
-```
-
-## What Flash does
-
-- **Remote execution**: `@Endpoint` functions run on Runpod Serverless GPUs/CPUs
-- **Implicit endpoint resolution**: `python script.py` routes to deployed endpoints automatically
-- **Auto-scaling**: workers scale from 0 to N based on demand
-- **Dependency management**: packages install automatically on remote workers
-- **Two patterns**: queue-based (`@Endpoint`) for batch work, load-balanced (`Endpoint()` + routes) for REST APIs
-- **Concurrency control**: `max_concurrency` lets each worker process multiple jobs simultaneously
-
-## Documentation
-
-Full documentation: **[docs.runpod.io/flash](https://docs.runpod.io/flash)**
-
-- [Quickstart](https://docs.runpod.io/flash/quickstart) - First GPU workload in 5 minutes
-- [Create endpoints](https://docs.runpod.io/flash/endpoint-functions) - Queue-based, load-balancing, and custom Docker endpoints
-- [CLI reference](https://docs.runpod.io/flash/cli/overview) - `flash dev`, `flash deploy`, `flash build`
-- [Configuration](https://docs.runpod.io/flash/configuration/parameters) - All endpoint parameters
-
-## Flash apps
-
-When you're ready to move beyond scripts and build a production-ready API, you can create a [Flash app](https://docs.runpod.io/flash/apps/overview) (a collection of interconnected endpoints with diverse hardware configurations) and deploy it to Runpod.
-
-[Follow this tutorial to build your first Flash app](https://docs.runpod.io/flash/apps/build-app).
-
-## Flash CLI
-
-```bash
-flash --help
-```
-
-[Learn more about the Flash CLI](https://docs.runpod.io/flash/cli/overview).
-
-## Examples
-
-Browse working examples: **[github.com/runpod/flash-examples](https://github.com/runpod/flash-examples)**
-
-## Requirements
-
-- Python 3.10-3.14
-- macOS or Linux (Windows support in development)
-- A [Runpod account](https://runpod.io/console) (email must be verified) with an API key
-
-## Contributing
-
-We welcome contributions! See [RELEASE_SYSTEM.md](RELEASE_SYSTEM.md) for development workflow.
-
-```bash
-git clone https://github.com/runpod/flash.git
-cd flash
-pip install -e ".[dev]"
-
-# use conventional commits
-git commit -m "feat: add new feature"
-git commit -m "fix: resolve issue"
-```
-
-Prefer a one-command, reproducible environment? With Nix (flakes):
-
-```bash
-nix develop      # dev shell: Python 3.14, uv, ruff, mypy, bandit, shellcheck
-                 # run `flash-help` inside for the available check-* helpers
-nix flake check  # hermetic gate: ruff lint + format, nixfmt, shellcheck
-```
-
-See the **[Nix guide](nix/README.md)** for installation and the full workflow.
-
-## Support
-
-- [Discord](https://discord.gg/cUpRmau42V) - Community support
-- [GitHub Issues](https://github.com/runpod/flash/issues) - Bug reports
+- Keep your local Python version close to the image's (3.11 for the default image). cloudpickle
+  across versions works for plain data but can break for functions and classes passed as arguments.
+- Instance mode uses plain HTTP to the box with a random bearer token. That's fine for a hackathon,
+  but don't send secrets as arguments.
+- Not ported from Flash: class endpoints, `flash build/deploy` artifacts, apps/environments,
+  load-balanced HTTP routes, and cross-endpoint calls.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT. See `LICENSE` (original Runpod copyright retained) and `NOTICE`.
