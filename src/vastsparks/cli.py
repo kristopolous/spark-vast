@@ -1,4 +1,4 @@
-"""`spark` command line."""
+"""`vastsparks` command line."""
 
 import asyncio
 import logging
@@ -11,7 +11,7 @@ from rich.table import Table
 from . import __version__, state
 from .backends import get_backend
 from .config import save_api_key
-from .exceptions import SparkError
+from .exceptions import VastsparksError
 from .resources import EndpointConfig
 from .vast import VastClient
 
@@ -22,7 +22,7 @@ console = Console()
 def _run(coro):
     try:
         return asyncio.run(coro)
-    except SparkError as e:
+    except VastsparksError as e:
         console.print(f"[red]error:[/red] {e}")
         raise typer.Exit(1) from None
 
@@ -38,7 +38,7 @@ def main(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
 
 @app.command()
 def version() -> None:
-    """Print the spark version."""
+    """Print the vastsparks version."""
     console.print(__version__)
 
 
@@ -63,7 +63,7 @@ def offers(
     disk: float = typer.Option(40, "--disk"),
     limit: int = typer.Option(10, "--limit"),
 ) -> None:
-    """Show the cheapest offers spark would rent for these filters."""
+    """Show the cheapest offers vastsparks would rent for these filters."""
     cfg = EndpointConfig(
         name="offers", gpu=gpu or None, num_gpus=num_gpus, max_price_per_hour=max_price, disk_gb=disk
     )
@@ -115,7 +115,7 @@ def gpus() -> None:
 
 @app.command("ls")
 def list_endpoints() -> None:
-    """List endpoints spark has provisioned (from ~/.spark/state.json)."""
+    """List endpoints vastsparks has provisioned (from ~/.vastsparks/state.json)."""
     entries = state.all_entries()
     if not entries:
         console.print("Nothing provisioned.")
@@ -152,7 +152,7 @@ def list_endpoints() -> None:
 @app.command()
 def down(
     names: list[str] | None = typer.Argument(None, help="endpoint names"),
-    all_: bool = typer.Option(False, "--all", help="tear down everything spark provisioned"),
+    all_: bool = typer.Option(False, "--all", help="tear down everything vastsparks provisioned"),
 ) -> None:
     """Destroy the Vast instances/endpoints behind endpoints (stops billing)."""
     entries = state.all_entries()
@@ -177,7 +177,7 @@ def down(
 
 @app.command()
 def orphans(destroy: bool = typer.Option(False, "--destroy")) -> None:
-    """Find instances labelled spark-* on your account that spark lost track of."""
+    """Find instances labelled vastsparks-* on your account that vastsparks lost track of."""
     known = {e.get("instance_id") for e in state.all_entries().values()}
 
     async def go():
@@ -185,7 +185,7 @@ def orphans(destroy: bool = typer.Option(False, "--destroy")) -> None:
             found = [
                 i
                 for i in await vast.list_instances()
-                if str(i.get("label") or "").startswith("spark-") and i.get("id") not in known
+                if str(i.get("label") or "").startswith("vastsparks-") and i.get("id") not in known
             ]
             for i in found:
                 console.print(
@@ -195,7 +195,7 @@ def orphans(destroy: bool = typer.Option(False, "--destroy")) -> None:
                     await vast.destroy_instance(i["id"])
                     console.print(f"  [green]destroyed {i['id']}[/green]")
             if not found:
-                console.print("No orphaned spark instances.")
+                console.print("No orphaned vastsparks instances.")
 
     _run(go())
 

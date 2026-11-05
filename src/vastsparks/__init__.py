@@ -1,4 +1,4 @@
-"""spark: run Python functions on Vast.ai GPUs with a decorator.
+"""vastsparks: run Python functions on Vast.ai GPUs with a decorator.
 
 A Vast.ai port of runpod-flash (MIT, Copyright (c) 2026 Runpod).
 """
@@ -29,8 +29,8 @@ from .endpoint import Endpoint, RemoteFunction, remote
 from .exceptions import (
     ProvisioningError,
     RemoteExecutionError,
-    SparkError,
     VastAPIError,
+    VastsparksError,
 )
 from .resources import Backend, EndpointConfig
 
@@ -59,7 +59,7 @@ __all__ = [
     "ServerlessEndpoint",
     "ServerlessScalerType",
     "ServerlessType",
-    "SparkError",
     "VastAPIError",
+    "VastsparksError",
     "remote",
 ]

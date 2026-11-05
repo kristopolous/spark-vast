@@ -1,15 +1,15 @@
-"""Spark exception types."""
+"""Vastsparks exception types."""
 
 
-class SparkError(Exception):
-    """Base class for all spark errors."""
+class VastsparksError(Exception):
+    """Base class for all vastsparks errors."""
 
 
-class ConfigError(SparkError):
+class ConfigError(VastsparksError):
     """Missing or invalid configuration (e.g. no Vast API key)."""
 
 
-class VastAPIError(SparkError):
+class VastAPIError(VastsparksError):
     """The Vast.ai REST API returned an error."""
 
     def __init__(self, message: str, status: int | None = None, body: str = ""):
@@ -18,15 +18,15 @@ class VastAPIError(SparkError):
         self.body = body
 
 
-class ProvisioningError(SparkError):
+class ProvisioningError(VastsparksError):
     """Could not rent or start a worker."""
 
 
-class RemoteExecutionError(SparkError):
+class RemoteExecutionError(VastsparksError):
     """The remote function raised, or the worker could not run it."""
 
 
-class SerializationError(SparkError):
+class SerializationError(VastsparksError):
     """cloudpickle could not (de)serialize a value."""
 
 
@@ -34,9 +34,9 @@ class PayloadTooLargeError(SerializationError):
     """A serialized payload exceeds the size limit."""
 
 
-class LocalModuleResolutionError(SparkError):
+class LocalModuleResolutionError(VastsparksError):
     """A local import of an endpoint function cannot be bundled."""
 
 
-class LocalModulePayloadTooLargeError(SparkError):
+class LocalModulePayloadTooLargeError(VastsparksError):
     """Bundled local module source exceeds the inline cap."""

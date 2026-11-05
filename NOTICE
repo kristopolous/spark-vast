@@ -1,10 +1,10 @@
-spark-vast is derived from runpod-flash (https://github.com/runpod/flash),
+vastsparks is derived from runpod-flash (https://github.com/runpod/flash),
 Copyright (c) 2026 Runpod, used under the MIT License (see LICENSE).
 
 Portions carried over with modification:
-  - src/spark/local_modules.py   (local import resolution, from runpod_flash/stubs/local_modules.py)
-  - src/spark/source.py          (function source extraction, from runpod_flash/stubs/live_serverless.py)
-  - src/spark/protocol.py        (request/response shape, from runpod_flash/protos/remote_execution.py)
-  - src/spark/serialization.py   (from runpod_flash/runtime/serialization.py)
+  - src/vastsparks/local_modules.py   (local import resolution, from runpod_flash/stubs/local_modules.py)
+  - src/vastsparks/source.py          (function source extraction, from runpod_flash/stubs/live_serverless.py)
+  - src/vastsparks/protocol.py        (request/response shape, from runpod_flash/protos/remote_execution.py)
+  - src/vastsparks/serialization.py   (from runpod_flash/runtime/serialization.py)
 
-spark-vast is not affiliated with or endorsed by Runpod or Vast.ai.
+vastsparks is not affiliated with or endorsed by Runpod or Vast.ai.

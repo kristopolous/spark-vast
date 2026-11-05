@@ -6,12 +6,12 @@ from pathlib import Path
 import httpx
 import pytest
 
-from spark.exceptions import VastAPIError
-from spark.resources import EndpointConfig
-from spark.vast import VastClient
-from spark.worker import instance_onstart, packed_server
+from vastsparks.exceptions import VastAPIError
+from vastsparks.resources import EndpointConfig
+from vastsparks.vast import VastClient
+from vastsparks.worker import instance_onstart, packed_server
 
-SERVER = Path(__file__).resolve().parents[1] / "src" / "spark" / "worker" / "server.py"
+SERVER = Path(__file__).resolve().parents[1] / "src" / "vastsparks" / "worker" / "server.py"
 
 
 def test_offer_query_filters_and_orders_by_price():
@@ -54,7 +54,7 @@ def test_onstart_unpacks_worker_exactly(tmp_path):
         ["bash", "-c", unpack],
         cwd=tmp_path,
         check=True,
-        env={"SPARK_WORKER_B64": packed_server(), "PATH": "/usr/bin:/bin"},
+        env={"VASTSPARKS_WORKER_B64": packed_server(), "PATH": "/usr/bin:/bin"},
     )
     assert (tmp_path / "server.py").read_bytes() == SERVER.read_bytes()
     assert gzip.decompress(base64.b64decode(packed_server())) == SERVER.read_bytes()
@@ -75,10 +75,10 @@ async def test_vast_client_sends_bearer_and_maps_errors():
     vast._http = httpx.AsyncClient(transport=httpx.MockTransport(handler), headers=vast._http.headers)
     assert await vast.search_offers({"q": 1}) == [{"id": 1}]
     assert await vast.create_instance(1, {"image": "x"}) == 99
-    with pytest.raises(VastAPIError, match="spark login"):
+    with pytest.raises(VastAPIError, match="vastsparks login"):
         await vast.list_instances()
     await vast.aclose()
 
     assert seen[0].headers["authorization"] == "Bearer k"
-    assert seen[0].headers["user-agent"].startswith("spark-vast/")
+    assert seen[0].headers["user-agent"].startswith("vastsparks/")
     assert seen[1].method == "PUT" and b'"client_id":"me"' in seen[1].content.replace(b" ", b"")

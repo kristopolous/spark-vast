@@ -1,8 +1,8 @@
-"""Run with:  uv run python examples/hello_gpu.py   (then `spark down hello-gpu`)"""
+"""Run with:  uv run python examples/hello_gpu.py   (then `vastsparks down hello-gpu`)"""
 
 import asyncio
 
-from spark import Endpoint
+from vastsparks import Endpoint
 
 
 @Endpoint(

@@ -1,9 +1,9 @@
-"""Vast Serverless PyWorker that fronts the spark worker.
+"""Vast Serverless PyWorker that fronts the vastsparks worker.
 
 Runs on each serverless worker instance next to `server.py` (started in
-SPARK_MODE=serverless on 127.0.0.1:18000). The PyWorker validates Vast's
-routing signatures, forwards `/execute` payloads to the spark worker, and
-reports load to the autoscaler. Readiness is detected from the spark
+VASTSPARKS_MODE=serverless on 127.0.0.1:18000). The PyWorker validates Vast's
+routing signatures, forwards `/execute` payloads to the vastsparks worker, and
+reports load to the autoscaler. Readiness is detected from the vastsparks
 worker's log line.
 
 Based on https://docs.vast.ai/guides/serverless/creating-new-pyworkers
@@ -19,13 +19,13 @@ from vastai import (  # provided by the Vast serverless SDK
     WorkerConfig,
 )
 
-PORT = int(os.environ.get("SPARK_PORT", "18000"))
-LOG_FILE = os.environ.get("SPARK_LOG_FILE", "/var/log/spark/worker.log")
+PORT = int(os.environ.get("VASTSPARKS_PORT", "18000"))
+LOG_FILE = os.environ.get("VASTSPARKS_LOG_FILE", "/var/log/vastsparks/worker.log")
 
 # A trivial request the autoscaler can time while the worker warms up.
 PING = {
-    "function_name": "_spark_ping",
-    "function_code": "def _spark_ping():\n    return 1\n",
+    "function_name": "_vastsparks_ping",
+    "function_code": "def _vastsparks_ping():\n    return 1\n",
 }
 
 worker_config = WorkerConfig(
@@ -36,15 +36,15 @@ worker_config = WorkerConfig(
         HandlerConfig(
             route="/execute",
             allow_parallel_requests=False,
-            max_queue_time=float(os.environ.get("SPARK_MAX_QUEUE_TIME", "600")),
+            max_queue_time=float(os.environ.get("VASTSPARKS_MAX_QUEUE_TIME", "600")),
             workload_calculator=lambda payload: 100.0,
             benchmark_config=BenchmarkConfig(dataset=[PING], runs=3, concurrency=1),
         ),
     ],
     log_action_config=LogActionConfig(
-        on_load=["[spark-worker] SPARK WORKER READY"],
-        on_error=["[spark-worker] SPARK WORKER FATAL", "Traceback (most recent call last):"],
-        on_info=["[spark-worker]"],
+        on_load=["[vastsparks-worker] VASTSPARKS WORKER READY"],
+        on_error=["[vastsparks-worker] VASTSPARKS WORKER FATAL", "Traceback (most recent call last):"],
+        on_info=["[vastsparks-worker]"],
     ),
 )
 

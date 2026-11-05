@@ -8,14 +8,14 @@ from pathlib import Path
 import httpx
 import pytest
 
-WORKER = Path(__file__).resolve().parents[1] / "src" / "spark" / "worker" / "server.py"
+WORKER = Path(__file__).resolve().parents[1] / "src" / "vastsparks" / "worker" / "server.py"
 
 
 @pytest.fixture(autouse=True)
-def spark_home(tmp_path, monkeypatch):
-    monkeypatch.setenv("SPARK_HOME", str(tmp_path / "spark_home"))
+def vastsparks_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("VASTSPARKS_HOME", str(tmp_path / "vastsparks_home"))
     monkeypatch.setenv("VAST_API_KEY", "test-key")
-    return tmp_path / "spark_home"
+    return tmp_path / "vastsparks_home"
 
 
 def _free_port() -> int:
@@ -33,9 +33,9 @@ class LocalWorker:
     def start(self) -> "LocalWorker":
         env = {
             **os.environ,
-            "SPARK_TOKEN": self.token,
-            "SPARK_PORT": str(self.port),
-            "SPARK_HOST": "127.0.0.1",
+            "VASTSPARKS_TOKEN": self.token,
+            "VASTSPARKS_PORT": str(self.port),
+            "VASTSPARKS_HOST": "127.0.0.1",
         }
         self.proc = subprocess.Popen(
             [sys.executable, "-I", str(WORKER)], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
@@ -87,9 +87,9 @@ class FakeVast:
 
     async def create_instance(self, offer_id, body):
         self.created.append(body)
-        self.worker.token = body["env"]["SPARK_TOKEN"]
+        self.worker.token = body["env"]["VASTSPARKS_TOKEN"]
         self.worker.stop()
-        self.worker.start()  # restart with the token spark generated
+        self.worker.start()  # restart with the token vastsparks generated
         return 1000 + len(self.created)
 
     async def show_instance(self, instance_id):

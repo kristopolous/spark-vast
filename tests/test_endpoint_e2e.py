@@ -3,16 +3,16 @@
 import httpx
 import pytest
 
-import spark.endpoint
-from spark import Endpoint, RemoteExecutionError, state
+import vastsparks.endpoint
 from tests.conftest import FakeVast
+from vastsparks import Endpoint, RemoteExecutionError, state
 
 
 @pytest.fixture
 def fake_vast(worker, monkeypatch):
     fake = FakeVast(worker)
-    monkeypatch.setattr(spark.endpoint, "VastClient", lambda: fake)
-    monkeypatch.setattr("spark.backends.instance.POLL_SECONDS", 0.01)
+    monkeypatch.setattr(vastsparks.endpoint, "VastClient", lambda: fake)
+    monkeypatch.setattr("vastsparks.backends.instance.POLL_SECONDS", 0.01)
     return fake
 
 
@@ -24,9 +24,9 @@ async def add(a, b, *, scale=1):
 
 @Endpoint(name="uses-helper")
 def uses_local_module(x):
-    import _spark_helper
+    import _vastsparks_helper
 
-    return _spark_helper.double(x)
+    return _vastsparks_helper.double(x)
 
 
 @Endpoint(name="boom")

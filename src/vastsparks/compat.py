@@ -2,12 +2,12 @@
 
 Lets code written for runpod-flash run on Vast.ai by changing only the import:
 
-    from runpod_flash import Endpoint, GpuGroup   ->   from spark import Endpoint, GpuGroup
+    from runpod_flash import Endpoint, GpuGroup   ->   from vastsparks import Endpoint, GpuGroup
 
 Flash's enums and resource-config classes are reproduced here with the same
-member names and values, and translated into spark's EndpointConfig (Vast
+member names and values, and translated into vastsparks's EndpointConfig (Vast
 search filters). Runpod-only knobs that have no Vast meaning are accepted
-and ignored; features spark doesn't implement raise a clear error.
+and ignored; features vastsparks doesn't implement raise a clear error.
 
 Enum names/values adapted from runpod-flash (MIT, Copyright (c) 2026 Runpod).
 """
@@ -73,7 +73,7 @@ class GpuType(Enum):
 
 
 # Runpod GPU type -> Vast `gpu_name`. Vast names come from its offer listings;
-# run `spark gpus` to see what the market currently calls each card.
+# run `vastsparks gpus` to see what the market currently calls each card.
 VAST_GPU_NAMES: dict[GpuType, str] = {
     GpuType.NVIDIA_GEFORCE_RTX_4090: "RTX 4090",
     GpuType.NVIDIA_GEFORCE_RTX_5090: "RTX 5090",
@@ -114,7 +114,7 @@ VAST_GROUP_NAMES: dict[GpuGroup, list[str]] = {
 
 
 def vast_gpu_names(gpu: Any) -> list[str] | None:
-    """Translate Flash/spark GPU specs into Vast gpu_names. None means any GPU."""
+    """Translate Flash/vastsparks GPU specs into Vast gpu_names. None means any GPU."""
     if gpu is None:
         return None
     items = gpu if isinstance(gpu, (list, tuple, set)) else [gpu]
@@ -246,7 +246,7 @@ class _Permissive(BaseModel):
 
 
 class NetworkVolume(_Permissive):
-    """Accepted for compatibility; Vast has no network volumes in spark yet."""
+    """Accepted for compatibility; Vast has no network volumes in vastsparks yet."""
 
     name: str | None = None
     size: int | None = 100
@@ -282,10 +282,10 @@ def normalize_workers(workers: Any) -> tuple[int, int]:
     return lo, hi
 
 
-def flash_to_spark(kwargs: dict[str, Any]) -> dict[str, Any]:
+def flash_to_vastsparks(kwargs: dict[str, Any]) -> dict[str, Any]:
     """Map Flash `Endpoint(...)` keyword arguments onto EndpointConfig fields.
 
-    Spark-native keywords (backend, max_price_per_hour, ...) pass through
+    Vastsparks-native keywords (backend, max_price_per_hour, ...) pass through
     unchanged, so the two styles can be mixed.
     """
     kw = dict(kwargs)
@@ -308,7 +308,7 @@ def flash_to_spark(kwargs: dict[str, Any]) -> dict[str, Any]:
         out["cold_workers"], out["max_workers"] = lo, max(hi, 1)
 
     if kw.get("idle_timeout") is None:
-        kw.pop("idle_timeout", None)  # keep spark's default rather than Flash's 60s
+        kw.pop("idle_timeout", None)  # keep vastsparks's default rather than Flash's 60s
 
     timeout_ms = kw.pop("execution_timeout_ms", 0) or 0
     if timeout_ms > 0:
@@ -323,9 +323,11 @@ def flash_to_spark(kwargs: dict[str, Any]) -> dict[str, Any]:
         search.update(datacenter_search(dc))
 
     if kw.pop("volume", None):
-        warnings.warn("spark: network volumes are not supported on Vast yet; ignoring volume=", stacklevel=3)
+        warnings.warn(
+            "vastsparks: network volumes are not supported on Vast yet; ignoring volume=", stacklevel=3
+        )
     if kw.pop("template", None) is not None:
-        warnings.warn("spark: PodTemplate is ignored; pass image= and env= instead", stacklevel=3)
+        warnings.warn("vastsparks: PodTemplate is ignored; pass image= and env= instead", stacklevel=3)
     for key in FLASH_IGNORED:
         kw.pop(key, None)
 
@@ -335,7 +337,7 @@ def flash_to_spark(kwargs: dict[str, Any]) -> dict[str, Any]:
 
     if search:
         out["search"] = search
-    out.update(kw)  # remaining keys are spark-native (image, backend, max_price_per_hour, ...)
+    out.update(kw)  # remaining keys are vastsparks-native (image, backend, max_price_per_hour, ...)
     return out
 
 
@@ -365,7 +367,7 @@ class ServerlessResource(_Permissive):
     def to_endpoint_kwargs(self) -> dict[str, Any]:
         if self.load_balanced:
             raise NotImplementedError(
-                f"{type(self).__name__}: load-balanced HTTP endpoints are not supported by spark yet"
+                f"{type(self).__name__}: load-balanced HTTP endpoints are not supported by vastsparks yet"
             )
         kw: dict[str, Any] = {"env": self.env, "datacenter": self.datacenter}
         if self.instanceIds:

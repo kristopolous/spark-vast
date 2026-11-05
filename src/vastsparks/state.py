@@ -1,4 +1,4 @@
-"""Local record of what spark has provisioned on Vast.ai (~/.spark/state.json).
+"""Local record of what vastsparks has provisioned on Vast.ai (~/.vastsparks/state.json).
 
 Each entry is keyed by endpoint name and holds the Vast ids needed to reuse
 or tear down the resource. Writes are atomic and guarded by a file lock so
@@ -13,11 +13,11 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from .config import spark_home
+from .config import vastsparks_home
 
 
 def _path() -> Path:
-    return spark_home() / "state.json"
+    return vastsparks_home() / "state.json"
 
 
 @contextlib.contextmanager

@@ -2,8 +2,8 @@
 
 import pytest
 
-import spark
-from spark import (
+import vastsparks
+from vastsparks import (
     CpuInstanceType,
     CpuLiveServerless,
     CudaVersion,
@@ -15,7 +15,7 @@ from spark import (
     LiveServerless,
     remote,
 )
-from spark.compat import VAST_GPU_NAMES, vast_gpu_names
+from vastsparks.compat import VAST_GPU_NAMES, vast_gpu_names
 
 FLASH_ALL = [
     "remote",
@@ -43,7 +43,7 @@ FLASH_ALL = [
 
 @pytest.mark.parametrize("name", FLASH_ALL)
 def test_flash_public_names_importable(name):
-    assert hasattr(spark, name)
+    assert hasattr(vastsparks, name)
 
 
 def test_every_gpu_type_has_a_vast_name():
@@ -154,7 +154,7 @@ def test_unsupported_flash_features_fail_clearly():
 
 
 def test_volume_is_ignored_with_warning():
-    from spark import NetworkVolume
+    from vastsparks import NetworkVolume
 
     with pytest.warns(UserWarning, match="network volumes"):
         Endpoint(name="v", volume=NetworkVolume(name="models"))

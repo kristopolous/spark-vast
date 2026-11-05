@@ -2,7 +2,7 @@
 
 Cheapest option and fully under your control: the instance is reused across
 calls, destroys itself after `idle_timeout` seconds without work, and
-`spark down` removes it immediately.
+`vastsparks down` removes it immediately.
 """
 
 import asyncio
@@ -54,7 +54,7 @@ class InstanceBackend(Backend):
         elif entry:
             raise ProvisioningError(
                 f"'{cfg.name}' is deployed with the {entry.get('backend')} backend; "
-                f"run `spark down {cfg.name}` first"
+                f"run `vastsparks down {cfg.name}` first"
             )
         return await self._wait_ready(cfg, await self._rent(cfg, vast), vast)
 
@@ -64,22 +64,22 @@ class InstanceBackend(Backend):
             raise ProvisioningError(
                 f"No Vast offers match {cfg.name}: gpu={cfg.gpus or 'any'} x{cfg.num_gpus}, "
                 f"disk>={cfg.disk_gb}GB, max ${cfg.max_price_per_hour}/hr. "
-                "Try `spark offers` with looser filters."
+                "Try `vastsparks offers` with looser filters."
             )
 
         token = secrets.token_urlsafe(32)
         body = {
             "image": cfg.image,
             "disk": cfg.disk_gb,
-            "label": f"spark-{cfg.name}",
+            "label": f"vastsparks-{cfg.name}",
             "runtype": "ssh_direc ssh_proxy",
             "onstart": instance_onstart(),
             "env": {
                 f"-p {WORKER_PORT}:{WORKER_PORT}": "1",
-                "SPARK_TOKEN": token,
-                "SPARK_PORT": str(WORKER_PORT),
-                "SPARK_IDLE_TIMEOUT": str(cfg.idle_timeout),
-                "SPARK_WORKER_B64": packed_server(),
+                "VASTSPARKS_TOKEN": token,
+                "VASTSPARKS_PORT": str(WORKER_PORT),
+                "VASTSPARKS_IDLE_TIMEOUT": str(cfg.idle_timeout),
+                "VASTSPARKS_WORKER_B64": packed_server(),
                 **cfg.env,
             },
         }
@@ -102,7 +102,7 @@ class InstanceBackend(Backend):
                 "created_at": time.time(),
                 "url": None,
             }
-            state.put(cfg.name, entry)  # record before waiting so `spark down` can clean up
+            state.put(cfg.name, entry)  # record before waiting so `vastsparks down` can clean up
             log.info(
                 "%s: rented instance %s (%s x%s @ $%.3f/hr)",
                 cfg.name,
@@ -144,7 +144,7 @@ class InstanceBackend(Backend):
         raise ProvisioningError(
             f"{cfg.name}: worker not ready after {cfg.provision_timeout}s "
             f"(instance {entry['instance_id']} is still running and billing; "
-            f"`spark down {cfg.name}` to remove it)"
+            f"`vastsparks down {cfg.name}` to remove it)"
         )
 
     async def execute(

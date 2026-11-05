@@ -1,7 +1,7 @@
-"""Wire protocol between the spark client and the spark worker.
+"""Wire protocol between the vastsparks client and the vastsparks worker.
 
 Field names match runpod-flash's FunctionRequest/FunctionResponse so the
-shape stays familiar, trimmed to what the spark worker implements
+shape stays familiar, trimmed to what the vastsparks worker implements
 (plain function execution).
 """
 

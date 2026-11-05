@@ -12,7 +12,7 @@ from . import __version__
 from .config import VAST_API_URL, VAST_ROUTE_URL, get_api_key
 from .exceptions import VastAPIError
 
-USER_AGENT = f"spark-vast/{__version__}"
+USER_AGENT = f"vastsparks/{__version__}"
 
 
 class VastClient:
@@ -44,7 +44,7 @@ class VastClient:
             body = resp.text[:500]
             hint = ""
             if resp.status_code in (401, 403):
-                hint = " (check your API key: `spark login`)"
+                hint = " (check your API key: `vastsparks login`)"
             raise VastAPIError(
                 f"{method} {path} -> HTTP {resp.status_code}{hint}: {body}",
                 status=resp.status_code,

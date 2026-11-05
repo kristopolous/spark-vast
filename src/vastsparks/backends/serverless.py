@@ -1,6 +1,6 @@
 """Vast Serverless backend: endpoint + workergroup, autoscaled by Vast.
 
-Each worker runs the spark worker behind Vast's PyWorker. Calls go through
+Each worker runs the vastsparks worker behind Vast's PyWorker. Calls go through
 `run.vast.ai/route`, which picks a ready worker and signs the request.
 Better for bursty or multi-user traffic; you pay for whatever cold/hot
 workers the autoscaler keeps.
@@ -30,7 +30,7 @@ ROUTE_POLL_SECONDS = 5
 
 
 def vast_endpoint_name(name: str) -> str:
-    return f"spark-{name}"
+    return f"vastsparks-{name}"
 
 
 class ServerlessBackend(Backend):
@@ -47,19 +47,19 @@ class ServerlessBackend(Backend):
         elif entry:
             raise ProvisioningError(
                 f"'{cfg.name}' is deployed with the {entry.get('backend')} backend; "
-                f"run `spark down {cfg.name}` first"
+                f"run `vastsparks down {cfg.name}` first"
             )
 
         env = " ".join(
             [
-                f"-e SPARK_WORKER_B64={packed_server()}",
-                f"-e SPARK_PYWORKER_B64={packed_pyworker()}",
+                f"-e VASTSPARKS_WORKER_B64={packed_server()}",
+                f"-e VASTSPARKS_PYWORKER_B64={packed_pyworker()}",
                 *(f"-e {k}={v}" for k, v in cfg.env.items()),
             ]
         )
         template = await vast.create_template(
             {
-                "name": f"spark-{cfg.name}-{cfg.config_hash()}",
+                "name": f"vastsparks-{cfg.name}-{cfg.config_hash()}",
                 "image": cfg.image,
                 "env": env,
                 "onstart": serverless_onstart(cfg.pyworker_pip),

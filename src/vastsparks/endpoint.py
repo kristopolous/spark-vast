@@ -11,7 +11,7 @@ from typing import Any
 
 from . import state
 from .backends import StaleResourceError, get_backend
-from .compat import ServerlessResource, flash_to_spark
+from .compat import ServerlessResource, flash_to_vastsparks
 from .exceptions import RemoteExecutionError
 from .protocol import FunctionRequest, FunctionResponse
 from .resources import EndpointConfig
@@ -95,8 +95,8 @@ class Endpoint:
 
     Accepts runpod-flash's arguments (gpu=GpuGroup.ADA_24, workers=(0, 3),
     gpu_count, idle_timeout, execution_timeout_ms, min_cuda_version,
-    datacenter, ...) as well as spark's (backend, max_price_per_hour,
-    min_gpu_ram_gb, search, ...). See spark.compat for the mapping.
+    datacenter, ...) as well as vastsparks's (backend, max_price_per_hour,
+    min_gpu_ram_gb, search, ...). See vastsparks.compat for the mapping.
 
     Example:
         @Endpoint(name="hello-gpu", gpu=GpuType.NVIDIA_GEFORCE_RTX_4090, dependencies=["torch"])
@@ -112,21 +112,23 @@ class Endpoint:
     def __init__(self, name: str | None = None, *, id: str | None = None, **config: Any):
         if id is not None:
             raise NotImplementedError(
-                "Endpoint(id=...) connects to an existing Runpod endpoint; spark has no equivalent yet"
+                "Endpoint(id=...) connects to an existing Runpod endpoint; vastsparks has no equivalent yet"
             )
         self.name = name
-        self.config = flash_to_spark(config)
+        self.config = flash_to_vastsparks(config)
 
     def __call__(self, func: Callable) -> RemoteFunction:
         if inspect.isclass(func):
-            raise TypeError("spark @Endpoint supports functions only (class endpoints are not ported yet)")
+            raise TypeError(
+                "vastsparks @Endpoint supports functions only (class endpoints are not ported yet)"
+            )
         cfg = EndpointConfig(name=self.name or func.__name__.replace("_", "-"), **self.config)
         return RemoteFunction(func, cfg)
 
     # Flash's load-balanced route decorators and client-mode calls.
     def _unsupported(self, *_: Any, **__: Any):
         raise NotImplementedError(
-            "spark supports queue-style @Endpoint functions only; load-balanced routes "
+            "vastsparks supports queue-style @Endpoint functions only; load-balanced routes "
             "(.get/.post/...) and client calls (.run/.runsync/.status) are not ported yet"
         )
 
@@ -145,12 +147,14 @@ def remote(
 ):
     """runpod-flash's `@remote(resource_config=LiveServerless(...), ...)`, plus bare `@remote`.
 
-    Spark-style keywords (`@remote(gpu="RTX 4090")`) also work.
+    Vastsparks-style keywords (`@remote(gpu="RTX 4090")`) also work.
     """
     if callable(resource_config) and not isinstance(resource_config, ServerlessResource):
         return Endpoint()(resource_config)  # bare @remote
     if method or path:
-        raise NotImplementedError("spark does not support load-balanced @remote(method=, path=) routes yet")
+        raise NotImplementedError(
+            "vastsparks does not support load-balanced @remote(method=, path=) routes yet"
+        )
 
     kw: dict[str, Any] = {}
     name = config.pop("name", None)
